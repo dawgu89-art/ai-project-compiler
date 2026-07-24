@@ -1,0 +1,161 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Project {
+  id                String            @id @default(cuid())
+  name              String
+  description       String?
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+  
+  detectedLanguages String?
+  detectedFrameworks String?
+  detectedDatabases String?
+  
+  conversations     Conversation[]
+  requirements      Requirement[]
+  features          Feature[]
+  tasks             Task[]
+  architecture      Architecture?
+  codeBlocks        CodeBlock[]
+  
+  status            String            @default("draft")
+  revisions         Revision[]
+  
+  @@index([createdAt])
+  @@index([status])
+}
+
+model Conversation {
+  id                String            @id @default(cuid())
+  projectId         String
+  project           Project           @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  
+  content           String
+  format            String
+  importedAt        DateTime          @default(now())
+  
+  messageCount      Int?
+  codeBlockCount    Int?
+  extractedAt       DateTime?
+  parsedAt          DateTime?
+  status            String            @default("pending")
+  
+  extractedCode     String?
+  extractedDocs     String?
+  extractedTasks    String?
+  
+  @@index([projectId])
+  @@index([importedAt])
+}
+
+model Requirement {
+  id                String            @id @default(cuid())
+  projectId         String
+  project           Project           @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  
+  title             String
+  description       String
+  priority          String            @default("medium")
+  status            String            @default("pending")
+  
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+  
+  @@index([projectId])
+  @@index([status])
+}
+
+model Feature {
+  id                String            @id @default(cuid())
+  projectId         String
+  project           Project           @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  
+  name              String
+  description       String
+  status            String            @default("planned")
+  priority          String            @default("medium")
+  
+  tasks             Task[]
+  
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+  
+  @@index([projectId])
+  @@index([status])
+}
+
+model Task {
+  id                String            @id @default(cuid())
+  projectId         String
+  project           Project           @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  
+  featureId         String?
+  feature           Feature?          @relation(fields: [featureId], references: [id], onDelete: SetNull)
+  
+  title             String
+  description       String?
+  status            String            @default("todo")
+  priority          String            @default("medium")
+  
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+  
+  @@index([projectId])
+  @@index([featureId])
+  @@index([status])
+}
+
+model Architecture {
+  id                String            @id @default(cuid())
+  projectId         String            @unique
+  project           Project           @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  
+  overview          String?
+  diagram           String?
+  components        String
+  layers            String?
+  patterns          String?
+  
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+  
+  @@index([projectId])
+}
+
+model Revision {
+  id                String            @id @default(cuid())
+  projectId         String
+  project           Project           @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  
+  version           Int               @default(1)
+  snapshot          String
+  changeDescription String?
+  
+  createdAt         DateTime          @default(now())
+  
+  @@unique([projectId, version])
+  @@index([projectId])
+}
+
+model CodeBlock {
+  id                String            @id @default(cuid())
+  projectId         String
+  project           Project           @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  
+  language          String
+  content           String
+  filename          String?
+  description       String?
+  
+  createdAt         DateTime          @default(now())
+  
+  @@index([projectId])
+  @@index([language])
+}
