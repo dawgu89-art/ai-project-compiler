@@ -1,0 +1,78 @@
+version: '3.8'
+
+services:
+  sqlite:
+    image: nouchka/sqlite3:latest
+    container_name: apc-sqlite
+    volumes:
+      - ./data:/root/db
+    environment:
+      - SQLITE_DB=projects.db
+    networks:
+      - apc-network
+
+  ollama:
+    image: ollama/ollama:latest
+    container_name: apc-ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    environment:
+      - OLLAMA_HOST=0.0.0.0:11434
+    networks:
+      - apc-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:11434/api/tags"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: apc-backend
+    ports:
+      - "3001:3001"
+    environment:
+      - NODE_ENV=development
+      - DATABASE_URL=file:../data/projects.db
+      - OLLAMA_BASE_URL=http://ollama:11434
+      - CORS_ORIGIN=http://localhost:3000
+    volumes:
+      - ./backend:/app
+      - ./data:/data
+      - /app/node_modules
+    depends_on:
+      - sqlite
+      - ollama
+    networks:
+      - apc-network
+    command: npm run dev
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: apc-frontend
+    ports:
+      - "3000:5173"
+    environment:
+      - VITE_API_URL=http://localhost:3001
+      - VITE_AI_PROVIDER=ollama
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    depends_on:
+      - backend
+    networks:
+      - apc-network
+    command: npm run dev
+
+volumes:
+  ollama_data:
+
+networks:
+  apc-network:
+    driver: bridge
